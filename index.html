@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101827"><title>Last Mile Rider Payment</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#182230;background:#f3f6fa}*{box-sizing:border-box}body{margin:0}.wrap{max-width:1100px;margin:auto;padding:22px}.hero{background:#101827;color:#fff;padding:24px;border-radius:18px}.hero h1{margin:0 0 6px;font-size:25px}.muted{color:#9eabba}.controls{display:flex;gap:12px;flex-wrap:wrap;margin:18px 0}.controls label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#526071}input,button{font:inherit;border:1px solid #d5dce5;border-radius:10px;padding:10px;background:white}input[type=month]{min-width:170px}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}.card{background:white;padding:16px;border:1px solid #e3e8ef;border-radius:14px}.card small{color:#667386}.card strong{display:block;font-size:24px;margin-top:6px}.tablebox{overflow:auto;background:white;border:1px solid #e3e8ef;border-radius:14px}table{border-collapse:collapse;width:100%;min-width:650px}th,td{padding:11px;border-bottom:1px solid #edf0f4;text-align:left}th{background:#f8fafc;font-size:13px;color:#5b6878}td input{width:105px;padding:8px}td.money{text-align:right;font-variant-numeric:tabular-nums}.actions{display:flex;gap:9px;flex-wrap:wrap;margin:16px 0}.primary{background:#1d4ed8;color:white;border-color:#1d4ed8}.danger{color:#b42318}.note{font-size:13px;color:#64748b;line-height:1.6}.pill{display:inline-block;background:#eaf2ff;color:#1d4ed8;border-radius:20px;padding:4px 9px;font-size:12px}@media(max-width:650px){.wrap{padding:13px}.cards{grid-template-columns:1fr}.hero h1{font-size:21px}}
+</style></head>
+<body><main class="wrap">
+<header class="hero"><h1>ระบบสรุปยอดวิ่งไรเดอร์</h1><div class="muted">Last Mile · 7-Eleven · คำนวณค่าจ้างและรอบจ่ายอัตโนมัติ</div></header>
+<section class="controls"><label>ชื่อไรเดอร์<input id="rider" value="กันตพงษ์ ฉายทอง"></label><label>เดือนที่บันทึก<input id="month" type="month" value="2026-11"></label></section>
+<section class="cards"><div class="card"><small>จำนวนบิลรวม</small><strong id="totalBills">0</strong></div><div class="card"><small>ยอดเงินรวม</small><strong id="totalPay">฿0</strong></div><div class="card"><small>วันที่มีงาน</small><strong id="workDays">0</strong></div></section>
+<div class="actions"><button class="primary" id="csv">ดาวน์โหลด CSV</button><button id="print">พิมพ์รายงาน</button><button class="danger" id="clear">ล้างยอดของเดือนนี้</button></div>
+<div class="tablebox"><table><thead><tr><th>วันที่</th><th>ชื่อไรเดอร์</th><th>ยอดวิ่ง (บิล)</th><th style="text-align:right">ยอดโอนจริง</th><th>รอบจ่าย</th></tr></thead><tbody id="rows"></tbody></table></div>
+<p class="note">อัตราค่าจ้าง 15 บาท/บิล · ประกันรายได้ 500 บาท/วัน เมื่อมียอดวิ่งอย่างน้อย 1 บิลและคำนวณแล้วต่ำกว่า 500 บาท · วันที่ไม่มีงานจ่าย 0 บาท · ไม่มีการหักค่าซิมหรือ KPN</p>
+</main>
+<script>
+const $=id=>document.getElementById(id), money=n=>'฿'+Number(n||0).toLocaleString('th-TH');
+function pay(b){return b>0?Math.max(b*15,500):0}
+function payout(b,y,m){if(b<=0)return '';const day=b>=28?5:b>=25?2:8+3*(Math.ceil(b/3)-1);const add=b>=25?1:0;return new Date(y,m-1+add,day).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'})}
+function key(){return 'lm-rider:'+ $('month').value}
+function load(){let d={};try{d=JSON.parse(localStorage.getItem(key())||'{}')}catch{}return d}
+function save(){localStorage.setItem(key(),JSON.stringify(loadFromRows()))}
+function loadFromRows(){const d={};document.querySelectorAll('[data-day]').forEach(i=>{if(i.value!==''&&Number(i.value)>=0)d[i.dataset.day]=Number(i.value)});return d}
+function render(){const [y,m]=$('month').value.split('-').map(Number);if(!y||!m)return;const days=new Date(y,m,0).getDate(),data=load();$('rows').innerHTML='';let bills=0,total=0,work=0;
+for(let day=1;day<=days;day++){const b=Number(data[day]||0),p=pay(b);bills+=b;total+=p;if(b>0)work++;const tr=document.createElement('tr');tr.innerHTML='<td>'+String(day).padStart(2,'0')+'/'+String(m).padStart(2,'0')+'/'+y+'</td><td class="riderName"></td><td><input type="number" min="0" step="1" inputmode="numeric" placeholder="กรอกบิล" data-day="'+day+'" value="'+(data[day]??'')+'"></td><td class="money">'+money(p)+'</td><td>'+(b>0?payout(b,y,m):'—')+'</td>';tr.querySelector('.riderName').textContent=$('rider').value;tr.querySelector('input').addEventListener('input',()=>{save();renderSummary()});$('rows').appendChild(tr)}
+$('totalBills').textContent=bills.toLocaleString('th-TH');$('totalPay').textContent=money(total);$('workDays').textContent=work.toLocaleString('th-TH');}
+function renderSummary(){let bills=0,total=0,work=0;document.querySelectorAll('[data-day]').forEach(i=>{let b=Math.max(0,Math.floor(Number(i.value)||0));bills+=b;total+=pay(b);if(b>0)work++;const td=i.closest('tr').querySelectorAll('td');td[3].textContent=money(pay(b));const [y,m]=$('month').value.split('-').map(Number);td[4].textContent=b>0?payout(b,y,m):'—'});$('totalBills').textContent=bills.toLocaleString('th-TH');$('totalPay').textContent=money(total);$('workDays').textContent=work.toLocaleString('th-TH')}
+$('month').addEventListener('change',render);$('rider').addEventListener('input',()=>{document.querySelectorAll('.riderName').forEach(e=>e.textContent=$('rider').value)});
+$('csv').onclick=()=>{const [y,m]=$('month').value.split('-').map(Number);const lines=[['วันที่','ชื่อไรเดอร์','ยอดวิ่ง (บิล)','ยอดโอนจริง (บาท)','รอบจ่าย']];document.querySelectorAll('[data-day]').forEach(i=>{const b=Math.max(0,Math.floor(Number(i.value)||0)),d=Number(i.dataset.day);lines.push([y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0'),$('rider').value,b,pay(b),b?payout(b,y,m):''])});const csv='\ufeff'+lines.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='lastmile-'+$('month').value+'.csv';a.click();URL.revokeObjectURL(a.href)};
+$('print').onclick=()=>window.print();$('clear').onclick=()=>{if(confirm('ล้างยอดบิลของเดือน '+$('month').value+' ใช่หรือไม่?')){localStorage.removeItem(key());render()}};
+render();
+</script></body></html>
